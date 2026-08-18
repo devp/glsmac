@@ -3,6 +3,10 @@
 #include "engine/Engine.h"
 #include "graphics/Graphics.h"
 
+#ifdef __APPLE__
+#include "util/AppleMainThread.h"
+#endif
+
 #if ( !SDL_VERSION_ATLEAST( 2, 0, 18 ) )
 #define KMOD_SCROLL 0x8000 // workaround for ancient systems
 #endif
@@ -45,13 +49,33 @@ void SDL2::Stop() {
 	SDL_Quit();
 }
 
+#ifdef __APPLE__
+// Cocoa's event pump ( which SDL_PollEvent triggers internally ) requires the real process
+// main thread, same as window/context creation ( see util::AppleMainThread ) - this worker
+// thread just calls it every Iterate(), so marshal only the poll call itself, not the
+// event-processing logic below, to keep the round-trip cost to one dispatch per drained event
+static bool PollEvent( SDL_Event& event ) {
+	bool has_event = false;
+	util::AppleMainThread::Run(
+		[ &event, &has_event ]() {
+			has_event = SDL_PollEvent( &event );
+		}
+	);
+	return has_event;
+}
+#else
+static bool PollEvent( SDL_Event& event ) {
+	return SDL_PollEvent( &event );
+}
+#endif
+
 void SDL2::Iterate() {
 	SDL_Event event;
 
 	input::Event e = {};
 	input::Event e_mouse_move = {}; // send only once per iteration
 
-	while ( SDL_PollEvent( &event ) ) {
+	while ( PollEvent( event ) ) {
 		e.SetType( EV_NONE );
 		switch ( event.type ) {
 			case SDL_QUIT: {

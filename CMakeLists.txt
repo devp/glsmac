@@ -164,7 +164,7 @@ IF ( NOT WIN32 )
 ENDIF ()
 
 IF ( APPLE )
-	TARGET_LINK_OPTIONS( ${PROJECT_NAME} PRIVATE -framework OpenGL )
+	TARGET_LINK_OPTIONS( ${PROJECT_NAME} PRIVATE -framework OpenGL "SHELL:-framework CoreFoundation" )
 ENDIF ()
 
 IF ( WIN32 )
