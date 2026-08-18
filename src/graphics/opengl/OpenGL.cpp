@@ -12,6 +12,10 @@
 #include "types/texture/Texture.h"
 #include "gc/GC.h"
 
+#ifdef __APPLE__
+#include "util/AppleMainThread.h"
+#endif
+
 namespace graphics {
 namespace opengl {
 
@@ -49,12 +53,32 @@ OpenGL::~OpenGL() {}
 void OpenGL::Start() {
 
 	Log( "Initializing SDL2" );
-	SDL_VideoInit( NULL );
+	if ( !SDL_WasInit( SDL_INIT_VIDEO ) ) {
+		// on Apple, video is already initialized in main() because SDL's Cocoa backend
+		// refuses to create its device off the real process main thread, and SDL_VideoInit()
+		// unconditionally tears down and recreates the driver regardless of caller thread
+		SDL_VideoInit( NULL );
+	}
 
 	Log( "Creating window" );
 
 	SDL_SetHint( SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0" );
 
+#ifdef __APPLE__
+	// NSWindow must be instantiated on the real process main thread
+	util::AppleMainThread::Run(
+		[ this ]() {
+			m_window = SDL_CreateWindow(
+				m_options.title.c_str(),
+				SDL_WINDOWPOS_CENTERED,
+				SDL_WINDOWPOS_CENTERED,
+				m_options.viewport_width,
+				m_options.viewport_height,
+				SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+			);
+		}
+	);
+#else
 	m_window = SDL_CreateWindow(
 		m_options.title.c_str(),
 		SDL_WINDOWPOS_CENTERED,
@@ -63,6 +87,7 @@ void OpenGL::Start() {
 		m_options.viewport_height,
 		SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
 	);
+#endif
 
 	// not using ASSERTs below because those errors should be thrown in release mode too, i.e. if there's no opengl support or there is no X at all
 
@@ -76,6 +101,14 @@ void OpenGL::Start() {
 	}
 
 	Log( "Initializing OpenGL" );
+
+#ifdef __APPLE__
+	// Apple's legacy (non-core-profile) GL context caps out at GL 2.1 / GLSL 1.20, which
+	// our shaders (written for GLSL 330) can't compile against - request a core profile.
+	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
+	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
+	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 3 );
+#endif
 
 	SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 8 );
 	SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 8 );
@@ -94,10 +127,22 @@ void OpenGL::Start() {
 
 	SDL_GL_MakeCurrent( m_window, m_gl_context );
 
+#ifdef __APPLE__
+	// core profile forbids the legacy glGetString( GL_EXTENSIONS ) path GLEW defaults to
+	glewExperimental = GL_TRUE;
+#endif
 	GLenum res = glewInit();
 	if ( res != GLEW_OK ) {
 		THROW( "Unable to initialize OpenGL!" );
 	}
+
+#ifdef __APPLE__
+	// core profile (required on Apple for GLSL 330+, see above) has no default VAO -
+	// the rest of the codebase never binds one, so provide a single global one to bind to
+	GLuint vao;
+	glGenVertexArrays( 1, &vao );
+	glBindVertexArray( vao );
+#endif
 
 	{ // print some OpenGL info
 		auto* renderer = (const char*)glGetString( GL_RENDERER );
@@ -153,7 +198,12 @@ void OpenGL::Start() {
 	glDepthFunc( GL_LEQUAL );
 
 	glCullFace( GL_FRONT );
+#ifndef __APPLE__
+	// GL_PERSPECTIVE_CORRECTION_HINT is a legacy fixed-function enum, invalid under the
+	// core profile Apple requires for GLSL 330+ (see context creation above) - it would
+	// otherwise leave a stray GL_INVALID_ENUM for the next glGetError() check to trip on
 	glHint( GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST );
+#endif
 
 
 	// generate 'empty' texture (transparent 1x1)
@@ -207,7 +257,11 @@ void OpenGL::Stop() {
 	SDL_GL_DeleteContext( m_gl_context );
 
 	Log( "Destroying window" );
+#ifdef __APPLE__
+	util::AppleMainThread::Run( [ this ]() { SDL_DestroyWindow( m_window ); } );
+#else
 	SDL_DestroyWindow( m_window );
+#endif
 
 	Log( "Deinitializing SDL2" );
 	SDL_VideoQuit();
@@ -714,6 +768,16 @@ void OpenGL::SetFullscreen() {
 	SDL_DisplayMode dm;
 	SDL_GetDesktopDisplayMode( 0, &dm );
 
+#ifdef __APPLE__
+	util::AppleMainThread::Run(
+		[ this, &dm ]() {
+			SDL_SetWindowPosition( m_window, 0, 0 );
+			SDL_SetWindowSize( m_window, dm.w, dm.h );
+			SDL_SetWindowFullscreen( m_window, true );
+			SDL_SetWindowGrab( m_window, SDL_TRUE );
+		}
+	);
+#else
 	//SDL_SetWindowResizable( m_window, SDL_FALSE );
 	//SDL_SetWindowBordered( m_window, SDL_FALSE );
 	SDL_SetWindowPosition( m_window, 0, 0 );
@@ -721,6 +785,7 @@ void OpenGL::SetFullscreen() {
 	//SDL_RaiseWindow( m_window );
 	SDL_SetWindowFullscreen( m_window, true );
 	SDL_SetWindowGrab( m_window, SDL_TRUE );
+#endif
 
 	m_last_window_size = m_window_size;
 
@@ -738,6 +803,16 @@ void OpenGL::SetWindowed() {
 
 	m_window_size = m_last_window_size;
 
+#ifdef __APPLE__
+	util::AppleMainThread::Run(
+		[ this, &dm ]() {
+			SDL_SetWindowFullscreen( m_window, false );
+			SDL_SetWindowSize( m_window, m_window_size.x, m_window_size.y );
+			SDL_SetWindowPosition( m_window, ( dm.w - m_window_size.x ) / 2, ( dm.h - m_window_size.y ) / 2 );
+			SDL_SetWindowGrab( m_window, SDL_FALSE );
+		}
+	);
+#else
 	SDL_SetWindowFullscreen( m_window, false );
 	//SDL_SetWindowBordered( m_window, SDL_TRUE );
 	//SDL_SetWindowResizable( m_window, SDL_TRUE );
@@ -745,6 +820,7 @@ void OpenGL::SetWindowed() {
 	SDL_SetWindowPosition( m_window, ( dm.w - m_window_size.x ) / 2, ( dm.h - m_window_size.y ) / 2 );
 
 	SDL_SetWindowGrab( m_window, SDL_FALSE );
+#endif
 
 	ResizeViewport( m_window_size.x, m_window_size.y );
 }
