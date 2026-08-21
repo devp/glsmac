@@ -74,3 +74,18 @@ Currently mocks only inject test object (test.assert) — no game/um/bm/tm mocks
 To close it: extend src/gse/tests/mocks/ with a fake game object (stub get_players(), get_um(), get_bm(), get_tm(), event(), random, etc, returning canned/deterministic data), then add a GLSMAC_data/tests/ script that calls those default/game/*.gls.js entry points with the mock and asserts on results. Same pattern as Test::AddMocks, just a second mock module.
 
 Scope call: worth it if you're touching default/game/ logic often; skip if changes there are still infrequent/exploratory — --quickstart + eyeballing may stay cheaper than building+maintaining game-state mocks.
+
+-----
+
+REMINDER: standard glsjs working loop (red-green-refactor)
+
+.gls.js files are plain data, read fresh off disk each run — no compile/cache step, no C++ rebuild needed for script-only changes.
+
+1. red/green on pure logic/data files (rules, factions, resources, units, intro, etc): edit script, rerun
+   ./build/bin/GLSMAC --gse-tests --gse-tests-script PATH/TO/FILE.gls.js --quiet
+   add/adjust test.assert() calls, iterate — fast, headless, no window.
+2. for anything touching engine-bound stuff (#main, game/um/bm/tm, event()) that the headless mock can't fake: just launch real game
+   ./build/bin/GLSMAC --quickstart
+   change picked up next launch, no rebuild — confirm behavior in-game (manual/visual, not assertable yet, see mocks gap above).
+3. refactor once green, rerun same command to confirm still green.
+4. whole-suite check before calling it done: --gse-tests with no script arg (runs GLSMAC_data/tests/* built-in suite).
