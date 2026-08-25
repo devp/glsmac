@@ -32,17 +32,22 @@ GSE::GSE()
 GSE::~GSE() {
 	{
 		Finish();
-		for ( auto& it : m_include_cache ) {
-			it.second.Cleanup( this );
-		}
+		m_gc_space->Accumulate(
+			this,
+			[ this ]() {
+				for ( auto& it : m_include_cache ) {
+					it.second.Cleanup( this );
+				}
 
-		// make everything unreachable so that gc could clean it
-		m_global_contexts.clear();
-		m_parsers.clear();
-		m_runner = nullptr;
-		m_async = nullptr;
-		m_modules.clear();
-		m_root_objects.clear();
+				// make everything unreachable so that gc could clean it
+				m_global_contexts.clear();
+				m_parsers.clear();
+				m_runner = nullptr;
+				m_async = nullptr;
+				m_modules.clear();
+				m_root_objects.clear();
+			}
+		);
 	}
 	delete m_gc_space;
 }
