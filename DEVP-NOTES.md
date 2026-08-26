@@ -96,3 +96,7 @@ performance note:
 
 Biggest cost — state thrashing per draw call
 graphics/opengl/actor/Mesh.cpp:272-281 (also Sprite.cpp:111) — every actor draw does full bind→draw→unbind-to-0: glUseProgram(sp)...glUseProgram(0), same for texture, VBO/IBO. No dirty-check against currently-bound state across actors. Actor list z-sorted (Scene.cpp:214) but not grouped by shader/texture — so order doesn't help either. This is the classic 2D-engine perf killer: driver overhead scales with state-change count, not fill rate. Fix = track last-bound program/texture/buffer globally, skip redundant calls, sort draw list by shader then texture within z-layer.
+
+-----
+
+reminder to self: --gse-prompt-js exists
