@@ -11,6 +11,19 @@ const define = (game, id, coords) => {
 
 };
 
+const calculateXenoBonuses = () => {
+	let bonuses = {
+		NUTRIENTS: 0,
+		MINERALS: 0,
+		ENERGY: 0,
+	};
+
+	// TODO: calculated real fungus resources (checking specific techs)
+	bonuses.NUTRIENTS = 1;
+
+	return bonuses;
+}
+
 const result = {
 
 	configure: (game) => {
@@ -21,6 +34,8 @@ const result = {
 				MINERALS: 0,
 				ENERGY: 0,
 			};
+
+			const xeno_bonuses = calculateXenoBonuses();
 
 			// nutrients
 			if (!e.tile.features.xenofungus) {
@@ -38,7 +53,7 @@ const result = {
 					result.NUTRIENTS = result.NUTRIENTS + 2;
 				}
 			} else {
-				// TODO: fungus tiles
+				result.NUTRIENTS = xeno_bonuses.NUTRIENTS;
 			}
 
 			// minerals
@@ -54,7 +69,7 @@ const result = {
 					result.MINERALS = result.MINERALS + 2;
 				}
 			} else {
-				// TODO: fungus tiles
+				result.MINERALS = xeno_bonuses.MINERALS;
 			}
 
 			// energy
@@ -71,7 +86,7 @@ const result = {
 					result.ENERGY = result.ENERGY + 2;
 				}
 			} else {
-				// TODO: fungus tiles
+				result.ENERGY = xeno_bonuses.ENERGY;
 			}
 
 			// base
