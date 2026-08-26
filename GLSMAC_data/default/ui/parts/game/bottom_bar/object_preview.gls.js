@@ -62,22 +62,25 @@ return {
 
 	set_lines: (object) => {
 
-		if (#is_defined(this.lines)) {
-			this.lines.remove(); // TODO: fix this.lines.clear();
-		}
-
 		if (object == null) {
+			if (#is_defined(this.lines)) {
+				this.lines.remove();
+			}
 			this.lines = #undefined;
 			return;
 		}
 
-		this.lines = this.frame.listview({
-			left: 3,
-			right: 3,
-			top: 86,
-			bottom: 3,
-			itemsize: 17,
-		});
+		if (#is_defined(this.lines)) {
+			this.lines.clear();
+		} else {
+			this.lines = this.frame.listview({
+				left: 3,
+				right: 3,
+				top: 86,
+				bottom: 3,
+				itemsize: 17,
+			});
+		}
 
 		const f_line = (text, size, align) => {
 			let left = #undefined;

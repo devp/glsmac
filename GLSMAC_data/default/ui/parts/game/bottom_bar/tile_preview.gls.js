@@ -94,15 +94,16 @@ return {
 	set_lines: () => {
 		const tile = this.tile;
 		if (#is_defined(this.lines)) {
-			this.lines.remove(); // TODO: fix .clear()
+			this.lines.clear();
+		} else {
+			this.lines = this.frame.listview({
+				left: 3,
+				right: 3,
+				top: 63,
+				bottom: 3,
+				itemsize: 16,
+			});
 		}
-		this.lines = this.frame.listview({
-			left: 3,
-			right: 3,
-			top: 63,
-			bottom: 3,
-			itemsize: 16,
-		});
 
 		if (this.show_resources) {
 
