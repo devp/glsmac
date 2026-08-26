@@ -19,10 +19,14 @@ const calculateXenoBonuses = () => {
 	};
 
 	// TODO: calculated real fungus resources (checking specific techs)
+	// See also: https://alphacentauri.miraheze.org/wiki/Fungus/Xenofungus
+	// +1 Nutrient each for Centauri Ecology and Centauri Psi
+	// +1 Mineral each for Centauri Genetics, Matter Transmission, and Threshold of Transcendence
+	// +1 Energy each for Centauri Meditation, Secrets of Alpha Centauri, and Temporal Mechanics
 	bonuses.NUTRIENTS = 1;
 
 	return bonuses;
-}
+};
 
 const result = {
 
