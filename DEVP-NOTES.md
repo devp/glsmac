@@ -89,3 +89,10 @@ REMINDER: standard glsjs working loop (red-green-refactor)
    change picked up next launch, no rebuild — confirm behavior in-game (manual/visual, not assertable yet, see mocks gap above).
 3. refactor once green, rerun same command to confirm still green.
 4. whole-suite check before calling it done: --gse-tests with no script arg (runs GLSMAC_data/tests/* built-in suite).
+
+-----
+
+performance note:
+
+Biggest cost — state thrashing per draw call
+graphics/opengl/actor/Mesh.cpp:272-281 (also Sprite.cpp:111) — every actor draw does full bind→draw→unbind-to-0: glUseProgram(sp)...glUseProgram(0), same for texture, VBO/IBO. No dirty-check against currently-bound state across actors. Actor list z-sorted (Scene.cpp:214) but not grouped by shader/texture — so order doesn't help either. This is the classic 2D-engine perf killer: driver overhead scales with state-change count, not fill rate. Fix = track last-bound program/texture/buffer globally, skip redundant calls, sort draw list by shader then texture within z-layer.
