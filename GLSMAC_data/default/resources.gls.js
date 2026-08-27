@@ -11,18 +11,20 @@ const define = (game, id, coords) => {
 
 };
 
-const calculateXenoBonuses = () => {
+const calculateXenoBonuses = (player) => {
 	let bonuses = {
 		NUTRIENTS: 0,
 		MINERALS: 0,
 		ENERGY: 0,
 	};
 
-	// TODO: calculated real fungus resources (checking specific techs)
+	// TODO: calculated real fungus resources (checking specific techs).
+	// NOTE: player object (game::backend::Player) does not expose techs yet.
+	// Using a constant placeholder value right now.
 	// See also: https://alphacentauri.miraheze.org/wiki/Fungus/Xenofungus
-	// +1 Nutrient each for Centauri Ecology and Centauri Psi
-	// +1 Mineral each for Centauri Genetics, Matter Transmission, and Threshold of Transcendence
-	// +1 Energy each for Centauri Meditation, Secrets of Alpha Centauri, and Temporal Mechanics
+	//   +1 Nutrient each for Centauri Ecology and Centauri Psi
+	//   +1 Mineral each for Centauri Genetics, Matter Transmission, and Threshold of Transcendence
+	//   +1 Energy each for Centauri Meditation, Secrets of Alpha Centauri, and Temporal Mechanics
 	bonuses.NUTRIENTS = 1;
 
 	return bonuses;
@@ -39,10 +41,14 @@ const result = {
 				ENERGY: 0,
 			};
 
-			const xeno_bonuses = calculateXenoBonuses();
+			if (e.tile.features.xenofungus) {
+				const bonuses = calculateXenoBonuses(e.player);
+				result.NUTRIENTS = bonuses.NUTRIENTS;
+				result.MINERALS = bonuses.MINERALS;
+				result.ENERGY = bonuses.ENERGY;
+			} else {
 
-			// nutrients
-			if (!e.tile.features.xenofungus) {
+				// nutrients
 				if (e.tile.is_land) {
 					if (e.tile.rockiness < 3) {
 						result.NUTRIENTS = e.tile.moisture - 1;
@@ -56,30 +62,20 @@ const result = {
 				if (e.tile.bonuses.nutrient) {
 					result.NUTRIENTS = result.NUTRIENTS + 2;
 				}
-			} else {
-				result.NUTRIENTS = xeno_bonuses.NUTRIENTS;
-			}
 
-			// minerals
-			if (!e.tile.features.xenofungus) {
+				// minerals
 				if (e.tile.is_land) {
 					if (e.tile.rockiness > 1) {
 						result.MINERALS = 1;
 					}
-				} else {
-
 				}
 				if (e.tile.bonuses.minerals) {
 					result.MINERALS = result.MINERALS + 2;
 				}
-			} else {
-				result.MINERALS = xeno_bonuses.MINERALS;
-			}
 
-			// energy
-			if (!e.tile.features.xenofungus) {
+				// energy
 				if (e.tile.is_land) {
-					//result.ENERGY = e.tile.elevation / 1000; // only with solar collector
+					//result.ENERGY = e.tile.elevation / 1000; // TODO: only with solar collector
 					if (e.tile.features.river) {
 						result.ENERGY = result.ENERGY + 1; // TODO: fix += with properties
 					}
@@ -89,8 +85,7 @@ const result = {
 				if (e.tile.bonuses.energy) {
 					result.ENERGY = result.ENERGY + 2;
 				}
-			} else {
-				result.ENERGY = xeno_bonuses.ENERGY;
+
 			}
 
 			// base
@@ -109,7 +104,6 @@ const result = {
 			} else {
 				// TODO: terraforming
 			}
-
 
 			// TODO: tech-based limitations
 
