@@ -14,5 +14,6 @@ SET( SRC ${SRC}
 	${PWD}/Struct.cpp
 	${PWD}/LogHelper.cpp
 	${PWD}/Time.cpp
+	${PWD}/AppleMainThread.cpp
 
 	PARENT_SCOPE )

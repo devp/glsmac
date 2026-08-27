@@ -1,5 +1,11 @@
 #include <thread>
 
+#ifdef __APPLE__
+#include <SDL.h>
+#include <atomic>
+#include "util/AppleMainThread.h"
+#endif
+
 #if defined( DEBUG ) || defined ( FASTDEBUG )
 
 #include <string>
@@ -61,6 +67,23 @@
 
 #include "version.h"
 
+#ifdef __APPLE__
+static int RunEngineOnAppleMainThreadPump( engine::Engine& engine ) {
+	std::atomic< bool > running{ true };
+	int result = EXIT_FAILURE;
+	std::thread engine_thread( [ &engine, &result, &running ]() {
+		result = engine.Run();
+		running = false;
+	} );
+	util::AppleMainThread::Pump( running );
+	engine_thread.join();
+	return result;
+}
+#define ENGINE_RUN( engine ) RunEngineOnAppleMainThreadPump( engine )
+#else
+#define ENGINE_RUN( engine ) ( engine ).Run()
+#endif
+
 #include "game/backend/State.h"
 #include "game/backend/faction/Faction.h"
 #include "game/backend/faction/FactionManager.h"
@@ -120,6 +143,13 @@ int main( const int argc, char* const argv[] ) {
 			? common::MM_NONE
 			: common::MM_DEFAULT
 	);
+
+#ifdef __APPLE__
+	// SDL's Cocoa video backend refuses to create its device off the real process main thread.
+	// Engine spawns its own "MAIN" logical thread for everything else, so the video subsystem
+	// has to be brought up here first, while we're still on the actual main thread.
+	SDL_Init( SDL_INIT_VIDEO );
+#endif
 
 #if defined( DEBUG ) || defined( FASTDEBUG )
 
@@ -238,7 +268,7 @@ int main( const int argc, char* const argv[] ) {
 			nullptr
 		);
 
-		result = engine.Run();
+		result = ENGINE_RUN( engine );
 	}
 	else
 #endif
@@ -299,7 +329,7 @@ int main( const int argc, char* const argv[] ) {
 
 		scheduler.AddTask( task );
 
-		result = engine.Run();
+		result = ENGINE_RUN( engine );
 	}
 
 	for ( const auto& logger : loggers ) {
